@@ -1,0 +1,81 @@
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
+)
+
+// pubKey is a struct for an agent Key, the associated public key and
+// certificate (if applicable)
+type pubKey struct {
+	key         *agent.Key
+	publicKey   ssh.PublicKey
+	cert        *ssh.Certificate
+	isCert      bool
+	validBefore time.Time
+	validAfter  time.Time
+	expiresIn   time.Duration
+	marked      bool
+}
+
+// String represents a pubKey for printing
+func (p pubKey) String() string {
+	var tpl string
+	if !p.isCert {
+		tpl = `key %s : is not a certificate`
+		return fmt.Sprintf(tpl, p.key.Format)
+	}
+	tpl = "key %s\n    comment : %s\n    validity: %s to %s\n    expires : %s\n    marked  : %t"
+	return fmt.Sprintf(
+		tpl,
+		p.publicKey.Type(),
+		p.key.Comment,
+		p.validAfter.Format("2006-01-02 15:05:06 MST"),
+		p.validBefore.Format("2006-01-02 15:05:06 MST"),
+		p.expiresIn.Round(time.Second),
+		p.marked,
+	)
+}
+
+// expiring determines if a key has expired or will expire within
+// duration d
+func (p *pubKey) expiring(d time.Duration) bool {
+	if !p.isCert {
+		panic("key is not a certificate")
+	}
+	t := time.Now()
+	p.expiresIn = p.validBefore.Sub(t)
+	a := p.validBefore.Add(-d)
+	if a.Before(t) {
+		return true
+	}
+	return false
+}
+
+func (p *pubKey) mark() {
+	p.marked = true
+}
+
+// parsePubKey is from https://gist.github.com/StevenACoffman/8e2096e7583f3a67fe3d6280b2cb882c
+func newPubKey(k *agent.Key) (*pubKey, error) {
+	var err error
+	p := new(pubKey)
+	p.key = k
+	p.publicKey, err = ssh.ParsePublicKey(k.Blob)
+	if err != nil {
+		return p, fmt.Errorf("key parse error %w", err)
+	}
+	var ok bool
+	p.cert, ok = p.publicKey.(*ssh.Certificate)
+	if !ok {
+		p.isCert = false
+		return p, nil
+	}
+	p.isCert = true
+	p.validBefore = time.Unix(int64(p.cert.ValidBefore), 0)
+	p.validAfter = time.Unix(int64(p.cert.ValidAfter), 0)
+	return p, nil
+}
