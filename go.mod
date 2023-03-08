@@ -1,4 +1,4 @@
-module github.com/rorycl/sshagentcerts
+module github.com/rorycl/lsagentcerts
 
 go 1.18
 
