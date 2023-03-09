@@ -2,7 +2,15 @@
 
 version 0.0.1 : 09 March 2023
 
-A simple tool to list expiring ssh certificates.
+A simple tool to list expiring ssh certificates which may be suitable
+for running as a cron job or ssh `Match ... exec` block as part of an
+automated approach to refreshing ssh certificates.
+
+Note that it may be advisable to remove an expiring certificate when
+replacing it with a refreshed certificate else this program will still
+match the expiring certificate until it is dropped by the agent.
+
+## Usage
 
 ```
 ./lsagentcerts -h
@@ -22,7 +30,6 @@ Usage of ./lsagentcerts:
   -t	terse: exit 1 if any certs expiring
   -v	list all certificates
 ```
-
 Verbose mode includes non-expiring certificates.
 
 ```
