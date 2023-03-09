@@ -1,3 +1,6 @@
+/*
+key/pubKey represents a public key in an ssh agent, which might be a certificate.
+*/
 package main
 
 import (
@@ -18,7 +21,7 @@ type pubKey struct {
 	validBefore time.Time
 	validAfter  time.Time
 	expiresIn   time.Duration
-	marked      bool
+	marked      bool // marked for display
 }
 
 // String represents a pubKey for printing
@@ -55,11 +58,13 @@ func (p *pubKey) expiring(d time.Duration) bool {
 	return false
 }
 
+// mark sets a key as "marked" for display
 func (p *pubKey) mark() {
 	p.marked = true
 }
 
-// parsePubKey is from https://gist.github.com/StevenACoffman/8e2096e7583f3a67fe3d6280b2cb882c
+// newPubKey returns a new pubKey from an *ssh/agent.Key
+// parse is from https://gist.github.com/StevenACoffman/8e2096e7583f3a67fe3d6280b2cb882c
 func newPubKey(k *agent.Key) (*pubKey, error) {
 	var err error
 	p := new(pubKey)
