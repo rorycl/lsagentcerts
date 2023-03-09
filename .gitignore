@@ -1,0 +1,7 @@
+# sshagentca gitignore
+.DS_Store
+*.swp
+*.swo
+ex/*
+tags
+lsagentcerts
