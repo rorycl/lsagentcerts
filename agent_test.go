@@ -188,6 +188,14 @@ func TestAgentCerts(t *testing.T) {
 			expected: 1,
 			marked:   true,
 		},
+		"filter shows no cert, with verbose": {
+			// call:     agentCerts(socket, "xyz", time.Duration(25*time.Minute), true),
+			socket:   socket,
+			filter:   "xyz",
+			expDur:   25 * time.Minute,
+			verbose:  true,
+			expected: 0,
+		},
 	} {
 		ac, err := agentCerts(test.socket, test.filter, test.expDur, test.verbose)
 		if err != nil {

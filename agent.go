@@ -59,7 +59,7 @@ func agentCerts(socket, filter string, expDur time.Duration, verbose bool) ([]*p
 		if matched && expiring {
 			c.mark()
 			pks = append(pks, c)
-		} else if verbose {
+		} else if matched && verbose {
 			pks = append(pks, c)
 		}
 	}
