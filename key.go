@@ -11,6 +11,15 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+// outputTemplate is a string representation
+var outputTemplate = `%s
+    type     : %s
+    comment  : %s
+    validity : %s to %s
+    expires  : %s
+    marked   : %t
+`
+
 // pubKey is a struct for an agent Key, the associated public key and
 // certificate (if applicable)
 type pubKey struct {
@@ -31,13 +40,14 @@ func (p pubKey) String() string {
 		tpl = `key %s : is not a certificate`
 		return fmt.Sprintf(tpl, p.key.Format)
 	}
-	tpl = "key %s\n    comment : %s\n    validity: %s to %s\n    expires : %s\n    marked  : %t"
+	tpl = outputTemplate
 	return fmt.Sprintf(
 		tpl,
+		p.fingerprint(),
 		p.publicKey.Type(),
 		p.key.Comment,
-		p.validAfter.Format("2006-01-02 15:05:06 MST"),
-		p.validBefore.Format("2006-01-02 15:05:06 MST"),
+		p.validAfter.Format("2006-01-02T15:04:05"),
+		p.validBefore.Format("2006-01-02T15:04:05"),
 		p.expiresIn.Round(time.Second),
 		p.marked,
 	)
@@ -61,6 +71,11 @@ func (p *pubKey) expiring(d time.Duration) bool {
 // mark sets a key as "marked" for display
 func (p *pubKey) mark() {
 	p.marked = true
+}
+
+// fingerprint returns the sha256 fingerprint of the key
+func (p *pubKey) fingerprint() string {
+	return ssh.FingerprintSHA256(p.cert.Key)
 }
 
 // newPubKey returns a new pubKey from an *ssh/agent.Key
