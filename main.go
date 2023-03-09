@@ -40,10 +40,10 @@ var (
 )
 
 var usage = `
-lsagentcerts lists certificates in one's local ssh agent that are due to
-expire in <expiration> periodl Certificates may be filtered. To show all
-certificates use the verbose flag, or use the terse flag to exit 1 if
-any certificates are due to expire.
+lsagentcerts lists certificates in the ssh agent at the provided socket
+that are due to expire in the specified expiration period. Certificates
+may be filtered. To show all certificates use the verbose flag, or use
+the terse flag to exit 1 if any certificates are due to expire.
 `
 
 func main() {
