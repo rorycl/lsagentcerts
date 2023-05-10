@@ -5,7 +5,8 @@ Check the certificates loaded into the specified ssh agent for expiry in
 the next <expiration> period (specified as a golang time.Duration).
 
 Using a filter string one can restrict certificates containing that
-string. Note that this is a simple lowercase string match.
+string. Note that this is a simple lowercase match for any certificates
+containing the search string.
 
 In verbose mode all
 
@@ -32,11 +33,11 @@ import (
 )
 
 var (
-	socket     = flag.String("s", os.Getenv("SSH_AUTH_SOCK"), "agent socket")
-	filter     = flag.String("f", "", "filter by string")
+	socket     = flag.String("s", os.Getenv("SSH_AUTH_SOCK"), "ssh agent socket, typically SSH_AUTH SOCK")
+	filter     = flag.String("f", "", "only show certificates containing the lowercase filter string")
 	expiration = flag.Duration("e", time.Duration(60*time.Minute), "expiration window")
-	verbose    = flag.Bool("v", false, "list all certificates")
-	terse      = flag.Bool("t", false, "terse: exit 1 if any certs expiring")
+	verbose    = flag.Bool("v", false, "list all certificates and note non-certificate keys in the agent")
+	terse      = flag.Bool("t", false, "terse: exit 1 if any certs will expire within the expiration window")
 )
 
 var usage = `
@@ -62,18 +63,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	certs, err := agentCerts(*socket, *filter, *expiration, *verbose)
+	certs, err := agentCerts(*socket)
 	if err != nil {
-		fmt.Printf("agent listing error: %v", err)
+		fmt.Printf("agent listing error %v\n", err)
 		os.Exit(1)
 	}
-	for _, c := range certs {
 
-		if *terse && c.marked {
+	for _, c := range certs {
+		kf, err := keyFilter(c, *filter, *expiration)
+		if err != nil {
+			fmt.Printf("key parsing error: %v\n", err)
 			os.Exit(1)
 		}
-		if c.marked || *verbose {
-			fmt.Println(c)
+
+		if *terse && kf.marked {
+			os.Exit(1)
+		}
+		if kf.marked || *verbose {
+			fmt.Println(kf)
 		}
 	}
 }

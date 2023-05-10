@@ -26,10 +26,12 @@ type pubKey struct {
 	key         *agent.Key
 	publicKey   ssh.PublicKey
 	cert        *ssh.Certificate
-	isCert      bool
 	validBefore time.Time
 	validAfter  time.Time
 	expiresIn   time.Duration
+	isCert      bool
+	filterMatch bool
+	isExpiring  bool
 	marked      bool // marked for display
 }
 
@@ -37,8 +39,8 @@ type pubKey struct {
 func (p pubKey) String() string {
 	var tpl string
 	if !p.isCert {
-		tpl = `key %s : is not a certificate`
-		return fmt.Sprintf(tpl, p.key.Format)
+		tpl = `key %s %s : is not a certificate`
+		return fmt.Sprintf(tpl, p.key.Format, p.key.Comment)
 	}
 	tpl = outputTemplate
 	return fmt.Sprintf(
@@ -57,20 +59,26 @@ func (p pubKey) String() string {
 // duration d
 func (p *pubKey) expiring(d time.Duration) bool {
 	if !p.isCert {
-		panic("key is not a certificate")
+		return false
 	}
 	t := time.Now()
 	p.expiresIn = p.validBefore.Sub(t)
 	a := p.validBefore.Add(-d)
 	if a.Before(t) {
+		p.isExpiring = true
 		return true
 	}
+	p.isExpiring = false // default
 	return false
 }
 
 // mark sets a key as "marked" for display
 func (p *pubKey) mark() {
-	p.marked = true
+	if p.filterMatch && p.isExpiring {
+		p.marked = true
+		return
+	}
+	p.marked = false
 }
 
 // fingerprint returns the sha256 fingerprint of the key

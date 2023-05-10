@@ -127,6 +127,7 @@ func TestAgentCerts(t *testing.T) {
 		t.Errorf("cert signing error: %s", err)
 	}
 
+	// add certificate to agent
 	err = sshAgent.Add(agent.AddedKey{
 		PrivateKey:   priv,
 		Certificate:  cert,
@@ -134,80 +135,95 @@ func TestAgentCerts(t *testing.T) {
 		Comment:      identifier,
 	})
 	if err != nil {
-		t.Errorf("cert signing error: %s", err)
+		t.Errorf("cert addition to agent error: %s", err)
+	}
+
+	// add a normal private key to the agent
+	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Errorf("could not generate ed25519 key for private key %s", err)
+	}
+
+	// add key to agent
+	err = sshAgent.Add(agent.AddedKey{
+		PrivateKey: privKey,
+		Comment:    "key_only",
+	})
+	if err != nil {
+		t.Errorf("private key addition to agent error: %s", err)
 	}
 
 	for name, test := range map[string]struct {
-		socket   string
-		filter   string
-		expDur   time.Duration
-		verbose  bool
-		expected int
-		marked   bool
+		socket  string
+		filter  string
+		expDur  time.Duration
+		results int
+		certs   int
+		matches int
 	}{
 		"none expired": {
-			// call:     agentCerts(socket, "", time.Duration(1*time.Minute), false),
-			socket:   socket,
-			filter:   "",
-			expDur:   1 * time.Minute,
-			verbose:  false,
-			expected: 0,
+			socket:  socket,
+			filter:  "",
+			expDur:  1 * time.Minute,
+			results: 2,
+			certs:   1,
+			matches: 0,
 		},
 		"one expired": {
-			// call:     agentCerts(socket, "", time.Duration(21*time.Minute), false),
-			socket:   socket,
-			filter:   "",
-			expDur:   21 * time.Minute,
-			verbose:  false,
-			expected: 1,
-			marked:   true,
-		},
-		"verbose shows one cert": {
-			// call:     agentCerts(socket, "", time.Duration(19*time.Minute), true),
-			socket:   socket,
-			filter:   "",
-			expDur:   19 * time.Minute,
-			verbose:  true,
-			expected: 1,
-			marked:   false,
+			socket:  socket,
+			filter:  "",
+			expDur:  21 * time.Minute,
+			results: 2,
+			certs:   1,
+			matches: 1,
 		},
 		"filter shows no cert": {
-			// call:     agentCerts(socket, "xyz", time.Duration(25*time.Minute), false),
-			socket:   socket,
-			filter:   "xyz",
-			expDur:   25 * time.Minute,
-			verbose:  false,
-			expected: 0,
+			socket:  socket,
+			filter:  "xyz",
+			expDur:  25 * time.Minute,
+			results: 2,
+			certs:   1,
+			matches: 0,
 		},
 		"filter shows one cert": {
-			// call:     agentCerts(socket, "acme", time.Duration(25*time.Minute), false),
-			socket:   socket,
-			filter:   "acme",
-			expDur:   25 * time.Minute,
-			verbose:  false,
-			expected: 1,
-			marked:   true,
-		},
-		"filter shows no cert, with verbose": {
-			// call:     agentCerts(socket, "xyz", time.Duration(25*time.Minute), true),
-			socket:   socket,
-			filter:   "xyz",
-			expDur:   25 * time.Minute,
-			verbose:  true,
-			expected: 0,
+			socket:  socket,
+			filter:  "acme",
+			expDur:  25 * time.Minute,
+			results: 2,
+			certs:   1,
+			matches: 1,
 		},
 	} {
-		ac, err := agentCerts(test.socket, test.filter, test.expDur, test.verbose)
+		ac, err := agentCerts(test.socket)
 		if err != nil {
 			t.Errorf("name %s err %v", name, err)
 		}
-		if len(ac) != test.expected {
-			t.Errorf("name %s: expected %d certs, got %d", name, test.expected, len(ac))
-		}
-		if len(ac) == 1 {
-			if test.marked != ac[0].marked {
-				t.Errorf("name %s: marked got %t expected %t", name, ac[0].marked, test.marked)
+
+		keys := []*pubKey{}
+		var r, c, m = 0, 0, 0
+		r = len(ac)
+		for _, key := range ac {
+			kf, err := keyFilter(key, test.filter, test.expDur)
+			if err != nil {
+				t.Errorf("name %s err %v", name, err)
 			}
+			if kf.isCert {
+				c += 1
+			}
+			if kf.marked {
+				m += 1
+			}
+			keys = append(keys, kf)
+		}
+
+		if r != test.results {
+			t.Errorf("name %s results got %d expected %d", name, r, test.results)
+		}
+		if c != test.certs {
+			t.Errorf("name %s certificate number got %d expected %d", name, c, test.certs)
+		}
+		if m != test.matches {
+			t.Errorf("name %s match number got %d expected %d", name, m, test.matches)
 		}
 	}
 }

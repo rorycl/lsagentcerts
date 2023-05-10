@@ -13,56 +13,52 @@ import (
 )
 
 // agentCerts returns the certificates in the agent connected at socket,
-// filtering the name or comment by the filter and either expired or
-// expiring within a duration of expDur. If verbose is true all
-// certificates are returned with those matching the the filter and
-// expiration criteria marked as expiring
-func agentCerts(socket, filter string, expDur time.Duration, verbose bool) ([]*pubKey, error) {
+func agentCerts(socket string) ([]*agent.Key, error) {
 
-	pks := []*pubKey{}
 	conn, err := net.Dial("unix", socket)
 	if err != nil {
-		return pks, fmt.Errorf("socket err: %v", err)
+		return []*agent.Key{}, fmt.Errorf("socket err: %v", err)
 	}
 
 	a := agent.NewClient(conn)
 	l, err := a.List()
 	if err != nil {
-		return pks, fmt.Errorf("agent listing error: %v", err)
+		return l, fmt.Errorf("agent listing error: %v", err)
+	}
+	return l, nil
+
+}
+
+// keyFilter filters a key by string, an expiration duration window
+// filtering the name or comment by the filter and either expired or
+// expiring within a duration of expDur
+func keyFilter(pk *agent.Key, filter string, expDur time.Duration) (*pubKey, error) {
+
+	c, err := newPubKey(pk)
+	if err != nil {
+		return c, fmt.Errorf("key parsing error: %w", err)
 	}
 
-	for _, k := range l {
-		c, err := newPubKey(k)
-		if err != nil {
-			return pks, fmt.Errorf("key parsing error: %w", err)
-		}
+	// skip non-certificate keys
+	if !c.isCert {
+		c.isCert = false
+	}
 
-		// skip non-certificate keys
-		if !c.isCert {
-			continue
-		}
-
-		// a naive filter
-		matched := true
-		if filter != "" {
-			matched = false
-			f := strings.ToLower(filter)
-			if strings.Contains(strings.ToLower(c.key.Comment+c.key.Format), f) {
-				matched = true
-			}
-		}
-
-		// expiration
-		expiring := c.expiring(expDur)
-
-		// mark filtered and expiring certificates
-		if matched && expiring {
-			c.mark()
-			pks = append(pks, c)
-		} else if matched && verbose {
-			pks = append(pks, c)
+	// a naive filter
+	c.filterMatch = true
+	if filter != "" && c.isCert {
+		c.filterMatch = false
+		f := strings.ToLower(filter)
+		if strings.Contains(strings.ToLower(c.key.Comment+c.key.Format), f) {
+			c.filterMatch = true
 		}
 	}
 
-	return pks, nil
+	// expiration
+	c.expiring(expDur)
+
+	// mark filtered and expiring certificates
+	c.mark()
+
+	return c, nil
 }
