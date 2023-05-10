@@ -11,13 +11,19 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
-// outputTemplate is a string representation
-var outputTemplate = `%s
-    type     : %s
-    comment  : %s
-    validity : %s to %s
-    expires  : %s
-    marked   : %t
+// certTemplate is a string representation of a certificate
+var certTemplate = `cert %s
+     type     : %s
+     comment  : %s
+     validity : %s to %s
+     expires  : %s
+     marked   : %t
+`
+
+// keyTemplate is a string representation of a key
+var keyTemplate = `key  %s
+     type     : %s
+     comment  : %s
 `
 
 // pubKey is a struct for an agent Key, the associated public key and
@@ -35,14 +41,19 @@ type pubKey struct {
 	marked      bool // marked for display
 }
 
-// String represents a pubKey for printing
+// String represents a key in the agent for printing
 func (p pubKey) String() string {
 	var tpl string
 	if !p.isCert {
-		tpl = `key %s %s : is not a certificate`
-		return fmt.Sprintf(tpl, p.key.Format, p.key.Comment)
+		tpl = keyTemplate
+		return fmt.Sprintf(
+			tpl,
+			ssh.FingerprintSHA256(p.publicKey),
+			p.publicKey.Type(),
+			p.key.Comment,
+		)
 	}
-	tpl = outputTemplate
+	tpl = certTemplate
 	return fmt.Sprintf(
 		tpl,
 		p.fingerprint(),

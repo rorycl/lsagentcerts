@@ -1,6 +1,6 @@
 # lsagentcerts
 
-Version 0.0.2 : 09 March 2023
+Version 0.0.3 : 10 May 2023
 
 A simple tool to list expiring ssh certificates which may be suitable
 for running as a cron job or ssh `Match ... exec` block as part of an
@@ -13,8 +13,6 @@ report the expiring certificate until it is dropped by the agent.
 ## Usage
 
 ```
-./lsagentcerts -h
-
 lsagentcerts lists certificates in the ssh agent at the provided socket
 that are due to expire in the specified expiration period. Certificates
 may be filtered. To show all certificates use the verbose flag, or use
@@ -24,47 +22,44 @@ Usage of ./lsagentcerts:
   -e duration
     	expiration window (default 1h0m0s)
   -f string
-    	filter by string
+    	only show certificates containing the lowercase filter string
   -s string
-    	agent socket (default SSH_AUTH_SOCK)
-  -t	terse: exit 1 if any certs expiring
-  -v	list all certificates
+    	ssh agent socket, typically SSH_AUTH SOCK (default "/tmp/ssh-9qxvRBQYCOkX/agent.77431")
+  -t	terse: exit 1 if any certs will expire within the expiration window
+  -v	list all certificates and note non-certificate keys in the agent
 ```
 
-Verbose mode includes non-expiring certificates.
+Verbose mode includes non-expiring certificates and keys.
 
 ```
-./lsagentcerts -v
+./lsagentcerts -v -e 1h20m
 
-SHA256:pAy8wKyhWyCHfgK4qnNk6ko9r0MSuV+ifmFxe60Uvlw
-    type     : ssh-ed25519-cert-v01@openssh.com
-    comment  : acmeinc_briony_from:2023-03-09T11:57_to:2023-03-09T13:27UTC
-    validity : 2023-03-09T11:57:02 to 2023-03-09T13:27:02
-    expires  : 1h18m50s
-    marked   : false
+key  SHA256:32CvkGqZAkKhcrPZqALs0tdx+O571Ewxsddngs4qYBs
+     type     : ssh-rsa
+     comment  : /home/briony/.ssh/id_briony_key
 
-SHA256:TjRGYu7eQOXVGIvd3mjGwYmHo47aTkmU0pG/hQD9g7M
-    type     : ssh-ed25519-cert-v01@openssh.com
-    comment  : acmeinc_briony_from:2023-03-09T12:08_to:2023-03-09T13:38UTC
-    validity : 2023-03-09T12:08:04 to 2023-03-09T13:38:04
-    expires  : 1h29m52s
-    marked   : false
+key  SHA256:Ye3VV0z4vDvAuiZYqw4ji2Ht/JlDTMNlpTZoeZR+bDs
+     type     : ssh-ed25519
+     comment  : briony@test.com
+
+cert SHA256:rz4rsiRFFz36ubpiEiqH/wD53QR99GbkVqL9P9A2zCI
+     type     : ssh-ed25519-cert-v01@openssh.com
+     comment  : acmeinc_briony_from:2023-05-10T13:02_to:2023-05-10T14:32UTC
+     validity : 2023-05-10T14:02:04 to 2023-05-10T15:32:04
+     expires  : 1h16m1s
+     marked   : true
+
+cert SHA256:RZd7xjHvjsD49b9StEfwXK6pnhSAL23jhfulRPixGro
+     type     : ssh-ed25519-cert-v01@openssh.com
+     comment  : acmeinc_briony_from:2023-05-10T13:15_to:2023-05-10T14:45UTC
+     validity : 2023-05-10T14:15:37 to 2023-05-10T15:45:37
+     expires  : 1h29m34s
+     marked   : false
 ```
 
 The expiry setting allows the expiration to be specified. Go
 `time.ParseDuration` strings such as "s", "m" and "h" can be used,
-including constructs such as `2h45m`.
-
-```
-./lsagentcerts -e 79m
-
-SHA256:pAy8wKyhWyCHfgK4qnNk6ko9r0MSuV+ifmFxe60Uvlw
-    type     : ssh-ed25519-cert-v01@openssh.com
-    comment  : acmeinc_briony_from:2023-03-09T11:57_to:2023-03-09T13:27UTC
-    validity : 2023-03-09T11:57:02 to 2023-03-09T13:27:02
-    expires  : 1h18m40s
-    marked   : true
-```
+including constructs such as `1h20m` as shown above.
 
 Terse mode exits status 1 if there are expiring certificates
 
